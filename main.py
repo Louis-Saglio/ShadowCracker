@@ -1,6 +1,6 @@
 import hashlib
 from itertools import product
-from multiprocessing import Process
+from multiprocessing import Process, cpu_count
 from string import ascii_lowercase
 from time import time
 from typing import Set, Generator, Iterable
@@ -23,13 +23,13 @@ def generate_all_words(possible_chars: str, min_size: int, max_size: int) -> Gen
 
 
 def find_hash_original(algorithm, words: Iterable, targets, start):
-    for i, tried_password in enumerate(words):
+    for tried_password in words:
         hashed_tried_password = algorithm(str.encode(tried_password)).hexdigest()
         if hashed_tried_password in targets:
-            print(f"{tried_password} découvert au bout de {round(time() - start, 2)} secondes à la {i}ème itération")
+            print(f"{tried_password} découvert au bout de {round(time() - start, 2)} secondes")
             targets.remove(hashed_tried_password)
             with open('found', 'a') as f:
-                f.write(f"{tried_password} {time() - start}")
+                f.write(f"{tried_password} {time() - start}\n")
             if len(targets) == 0:
                 print("Tout les mots de passes ont été découverts")
                 break
@@ -52,19 +52,12 @@ def main():
     mini, maxi = 6, 6
     possible_combination_number = sum(len(chars) ** i for i in range(mini, maxi + 1))
     print(possible_combination_number / 10 ** 6, "millions de combinaisons possibles")
-    word_generator = (word for word in generate_all_words(chars, mini, maxi))
-    # batch_size = 3
-    batch_size = 500_000
-    # find_hash_original(
-    #     hashlib.md5,
-    #     (next(word_generator) for _ in range(batch_size)),
-    #     read_shadow('shadow'),
-    #     batch_size
-    # )
+    word_generator = generate_all_words(chars, mini, maxi)
+    batch_size = 50_000
     start = time()
     while True:
         try:
-            processes = [build_hash_breaker_process(word_generator, batch_size, start) for _ in range(8)]
+            processes = [build_hash_breaker_process(word_generator, batch_size, start) for _ in range(cpu_count())]
             for process in processes:
                 process.start()
             for process in processes:
